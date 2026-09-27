@@ -1,107 +1,138 @@
-# Hypotenium
+# Гипотениум (Hypotenium)
 
-**Chat with your UX research archive.** Upload reports, raw data and interview recordings — then ask questions and get answers that cite the exact page, row or timecode they came from.
+**Чат с базой ваших UX-исследований.** Загрузите отчеты, сырые данные и записи интервью — и задавайте вопросы. Ответы ссылаются на конкретную страницу, строки или таймкод источника.
 
-🇷🇺 Русская версия: [README.ru.md](README.ru.md)
+🇬🇧 English version: [README.en.md](README.en.md)
 
-> Status: working MVP, used internally by a UX research team. UI is in Russian; the pipeline is language-agnostic (see [Roadmap](#roadmap) for i18n).
+> Статус: рабочий MVP, используется внутри команды исследователей.
 
-## What it does
+## Что умеет
 
-- **Knowledge base of studies.** A study is a title, a date and any number of files: PDF reports, CSV raw data, audio/video interviews. Files are chunked, embedded and indexed automatically; media is transcribed with timecodes.
-- **Grounded answers with citations.** Every claim in an answer carries a `[n]` marker. Click it to open the source panel: the PDF page, the CSV rows, or the interview segment with a mini-player seeking to the exact moment. If nothing relevant exists, the assistant says so instead of guessing.
-- **Honest sources.** Citations are snapshots: if a study is deleted, old chats still show what was cited, marked as removed, and the deleted content never appears in new answers.
-- **Chats with history.** Follow-up questions are rewritten with context, dates in the question softly prioritise studies from that period, citation numbers are sequential within a chat, answers render Markdown. Chats can be shared by link and un-shared.
-- **Bring your own models.** Three slots — chat, embeddings, transcription — each pointing at any OpenAI-compatible API: OpenAI, OpenRouter, local Ollama/vLLM, GigaChat, and so on. The config is hot-reloaded; switching the embedding model offers a one-click reindex.
-- **Admin area.** Manage studies and files (with per-file notes that improve retrieval), approve new users, switch models.
-- **Optional local transcription.** A [GigaAM](https://github.com/salute-developers/GigaAM) container gives Russian speech recognition with timecodes and number normalisation, entirely on your machine — audio never leaves it.
+- **База знаний из исследований.** Исследование — это название, дата и любое число файлов: PDF-отчеты, CSV с сырыми данными, аудио- и видеозаписи интервью. Файлы автоматически режутся на фрагменты, векторизуются и индексируются; медиа транскрибируется с таймкодами.
+- **Ответы только по источникам, с цитатами.** Каждый тезис помечен маркером `[n]`. Клик открывает панель источника: страницу PDF, строки CSV или фрагмент интервью с мини-плеером, который перематывает на нужное место. Если в базе ничего нет — ассистент честно говорит об этом, а не выдумывает.
+- **Честные источники.** Цитаты — снимки: если исследование удалили, старые чаты покажут, на что ссылались, с пометкой «источник удален», а в новых ответах удаленное больше не появится.
+- **Чаты с историей.** Уточняющие вопросы переформулируются с учетом контекста, даты в вопросе мягко приоритизируют исследования того периода, номера цитат сквозные внутри чата, ответы рендерятся как Markdown. Чатом можно поделиться по ссылке и отозвать доступ.
+- **Любые модели.** Три слота — чат, эмбеддинги, транскрибация — каждый указывает на любой OpenAI-совместимый API: OpenAI, OpenRouter, локальные Ollama/vLLM, GigaChat и т.д. Конфиг перечитывается на лету; при смене модели эмбеддингов — переиндексация в один клик.
+- **Админка (Супердоступ).** Управление исследованиями и файлами (с пометками к файлам, которые улучшают поиск), выдача доступа пользователям, переключение моделей.
+- **Опциональная локальная транскрибация.** Контейнер с [GigaAM](https://github.com/salute-developers/GigaAM) дает русское распознавание речи с таймкодами и нормализацией чисел полностью на вашей машине — аудио никуда не уходит.
 
-## Quick start
+## Быстрый старт
 
-Requirements: Docker with Compose v2, and an API key for any OpenAI-compatible provider.
+Нужны Docker с Compose v2 и API-ключ любого OpenAI-совместимого провайдера.
 
 ```bash
-git clone <this repo> hypotenium && cd hypotenium
-cp .env.example .env          # put your key into LLM_API_KEY
+git clone <этот репозиторий> hypotenium && cd hypotenium
+cp .env.example .env          # впишите ключ в LLM_API_KEY
 docker compose up -d
 ```
 
-Open http://localhost:3000 and sign in as `admin@example.com` / `admin12345` (change both in `.env` before exposing the service to anyone). Then go to **Супердоступ → Исследования**, add a study with a few files, wait for processing to finish, and ask a question.
+Откройте http://localhost:3000 и войдите как `admin@example.com` / `admin12345` (смените оба значения в `.env`, прежде чем давать доступ кому-то еще). Затем **Супердоступ → Исследования**: добавьте исследование с парой файлов, дождитесь обработки и задайте вопрос.
 
-The first start builds two images (~3–5 minutes). Data lives in Docker volumes (`pgdata`, `files-data`) and survives restarts and rebuilds.
+Первый запуск собирает два образа (3–5 минут). Данные лежат в docker-volume'ах (`pgdata`, `files-data`) и переживают перезапуски и пересборки.
 
-## Models
+## Как пользоваться
 
-Everything about models is in [`config/models.yaml`](config/models.yaml). The defaults use OpenAI (`gpt-4o-mini`, `text-embedding-3-small`, `whisper-1`) with the key from `LLM_API_KEY`. To use something else, edit the slot — the file is re-read on the next request, no restart needed:
+### 1. Добавить исследования
 
-| Slot | What it does | Requirements |
+Исследования добавляют администраторы в разделе **Супердоступ → Исследования** (пункт «Супердоступ» внизу бокового меню виден только админам).
+
+1. Нажмите **«+ Добавить исследование»**.
+2. Заполните название и дату проведения. Дата важна: по ней работает мягкий фильтр, когда в вопросе упоминается период («что говорили в 2024 году»). Комментарий к исследованию необязателен.
+3. Прикрепите файлы — сколько угодно за раз: PDF-отчеты, CSV с сырыми данными (кодировка и разделитель определяются автоматически), аудио и видео интервью (до 500 МБ каждый). К каждому файлу можно написать комментарий: что внутри, какой сегмент, кто респондент. Комментарий попадает в контекст поиска, поэтому чем точнее пометка — тем лучше находятся нужные фрагменты.
+4. Сохраните форму. Файлы уйдут в фоновую обработку: извлечение текста, транскрибация медиа, нарезка на фрагменты, эмбеддинги. Статус виден в таблице («в очереди» → «обработка…» → «готово»), список обновляется сам. Транскрибация часового интервью занимает минуты, остальное — секунды.
+
+Внутри исследования можно дописать файлы позже, поменять комментарии (индекс по файлу пересчитается) и удалить исследование целиком — тогда оно исчезает из поиска, а в старых чатах его цитаты помечаются как «источник удален».
+
+### 2. Задать вопрос
+
+Главный экран — поле вопроса. Спрашивайте как коллегу: «Почему пользователи бросают оформление карты?», «Что респонденты говорили про уведомления в интервью 2024 года?». Ассистент ищет по всей базе и отвечает только по найденному: каждый тезис помечен номером `[n]`, клик по нему открывает панель источника — страницу PDF, строки CSV или момент интервью с плеером. Если в базе ничего нет, он так и скажет, а не додумает.
+
+Уточняющие вопросы задавайте в том же чате — контекст сохраняется. Кнопка «Поделиться» дает ссылку на чат для других пользователей сервиса; доступ можно отозвать.
+
+### 3. Пользователи и доступ
+
+- Первый администратор создается автоматически из `ADMIN_EMAIL` / `ADMIN_PASSWORD` в `.env`.
+- Остальные регистрируются сами по ссылке «Зарегистрироваться» на экране входа (email + пароль) и попадают в статус «ожидает доступа» — базу они пока не видят.
+- Администратор в **Супердоступ → Администрирование** нажимает **«Выдать доступ»**. Там же можно назначить еще одного админа («Сделать админом»), снять права или удалить пользователя вместе с его чатами. Последнего администратора снять нельзя.
+- Все допущенные пользователи видят одну общую базу исследований; чаты у каждого свои, пока ими не поделились.
+
+### 4. Сменить модели
+
+Модели задаются в файле [`config/models.yaml`](config/models.yaml) — три слота: `chat` (ответы), `embedding` (поисковый индекс), `transcription` (аудио → текст). Файл перечитывается на лету: сохранили — следующий запрос уже идет через новую модель, перезапуск не нужен.
+
+| Слот | Что делает | Требования |
 |---|---|---|
-| `chat` | answers, query rewriting, chat titles | any chat-completions endpoint with streaming |
-| `embedding` | vector index for retrieval | any embeddings endpoint; dimension is detected automatically |
-| `transcription` | audio/video → text | an `/audio/transcriptions` endpoint; `verbose_json` segments give timecodes |
+| `chat` | ответы, переформулировка запроса, названия чатов | любой chat-completions endpoint со стримингом |
+| `embedding` | векторный индекс для поиска | любой embeddings endpoint; размерность определяется автоматически |
+| `transcription` | аудио/видео → текст | endpoint `/audio/transcriptions`; сегменты `verbose_json` дают таймкоды |
 
-Commented examples in the file cover OpenRouter-style aggregators, local Ollama, GigaChat's direct API (it has its own OAuth flow, supported natively) and the local GigaAM transcriber. Keep your personal setup in `config/models.local.yaml` — it is git-ignored and takes precedence when present.
+Подойдет любой провайдер с OpenAI-совместимым API. В файле есть готовые примеры — достаточно раскомментировать и подставить ключ:
 
-**Local transcription.** Set `COMPOSE_PROFILES=gigaam` in `.env` (or run `docker compose --profile gigaam up -d`) and point the `transcription` slot at `http://transcriber:9000/v1`. The image is heavy (PyTorch CPU + model weights), which is why it is off by default.
+- **OpenAI** (по умолчанию): ключ в `LLM_API_KEY` в `.env`.
+- **Агрегаторы** (OpenRouter, polza.ai, Together): меняете `base_url` и имя модели, ключ — тот же `${LLM_API_KEY}` или своя переменная из `.env`.
+- **Локальные модели через Ollama**: `base_url: http://host.docker.internal:11434/v1`, ключ не нужен. Вместе с локальным транскрибером получается полностью офлайн-вариант.
+- **GigaChat**: у него собственная OAuth-авторизация, она поддержана — `provider: gigachat`, ключ в `GIGACHAT_AUTH_KEY`.
+- **Локальная транскрибация GigaAM** (русская речь, таймкоды, аудио не покидает машину): добавьте `COMPOSE_PROFILES=gigaam` в `.env`, выполните `docker compose up -d` и направьте слот `transcription` на `http://transcriber:9000/v1`. Образ тяжелый (~1 ГБ + веса), поэтому по умолчанию выключен.
 
-## How it works
+Два правила:
+
+- **Смена embedding-модели делает индекс несовместимым.** Ничего не ломается: в Супердоступ → Исследования появится желтая плашка с кнопкой **«Переиндексировать»** — она пересчитает эмбеддинги всех фрагментов новой моделью в фоне, без повторной транскрибации. Пока идет пересчет, старые фрагменты не участвуют в поиске.
+- **Личные настройки держите в `config/models.local.yaml`.** Он в `.gitignore` и имеет приоритет над `models.yaml`, так что при обновлении репозитория ваши ключи и выбор моделей не затрутся.
+
+Параметры поиска там же, в секции `rag`: `top_k` — сколько фрагментов передавать модели, `min_similarity` — порог отсечения нерелевантных, `history_messages` — сколько сообщений чата учитывать в контексте.
+
+## Как устроено
 
 ```
-upload ──► worker: extract (pypdf / csv / ffmpeg + ASR) ──► chunk ──► embed ──► pgvector
-question ──► rewrite with history ──► vector search (+ soft date filter) ──► LLM with numbered sources ──► stream with [n] citations ──► citation snapshots saved
+загрузка ──► worker: извлечение (pypdf / csv / ffmpeg + ASR) ──► чанки ──► эмбеддинги ──► pgvector
+вопрос ──► переформулировка с историей ──► векторный поиск (+ мягкий фильтр дат) ──► LLM с нумерованными источниками ──► стрим с цитатами [n] ──► снимки цитат в БД
 ```
 
-- **Backend:** FastAPI, SQLAlchemy 2 (async), PostgreSQL 16 + pgvector, arq workers on Redis. SSE streaming for answers.
-- **Frontend:** Next.js 15 (App Router), plain CSS, no UI framework.
-- **Ingestion:** page-aware PDF extraction with boilerplate stripping, encoding/delimiter detection for CSV, ffmpeg audio extraction and segmentation for media, garbage-chunk filtering, per-file notes prepended to embedding context.
-- **Citations:** the model cites positions in its source list; the server renumbers them into sequential chat numbers on the fly and stores a snapshot (study, file, locator, full chunk text) with every message.
+- **Бэкенд:** FastAPI, SQLAlchemy 2 (async), PostgreSQL 16 + pgvector, воркеры arq на Redis. Ответы стримятся через SSE.
+- **Фронтенд:** Next.js 15 (App Router), чистый CSS без UI-фреймворка.
+- **Обработка файлов:** постраничное извлечение PDF с чисткой колонтитулов, определение кодировки и разделителя CSV, извлечение и нарезка аудио через ffmpeg, фильтр «мусорных» фрагментов, пометки к файлам в контексте эмбеддинга.
+- **Цитаты:** модель ссылается на позиции в списке источников, сервер на лету переводит их в сквозные номера чата и сохраняет снимок (исследование, файл, локатор, полный текст фрагмента) при каждом сообщении.
 
-| Service | Port | Role |
+| Сервис | Порт | Роль |
 |---|---|---|
-| `web` | 3000 | Next.js frontend |
-| `api` | 8000 | FastAPI backend, Swagger at `/docs` |
-| `worker` | — | background processing (transcription, embeddings, reindex) |
+| `web` | 3000 | фронтенд Next.js |
+| `api` | 8000 | бэкенд FastAPI, Swagger на `/docs` |
+| `worker` | — | фоновая обработка (транскрибация, эмбеддинги, переиндексация) |
 | `postgres` | 5432 | PostgreSQL + pgvector |
-| `redis` | — | job queue |
-| `transcriber` | 127.0.0.1:9000 | optional local GigaAM ASR (`gigaam` profile) |
+| `redis` | — | очередь задач |
+| `transcriber` | 127.0.0.1:9000 | опциональный локальный GigaAM (профиль `gigaam`) |
 
-The full product spec (in Russian) with decisions, threat model and the iteration-2 plan is in [docs/TZ.md](docs/TZ.md).
+Полное техническое задание с принятыми решениями, моделью угроз и планом второй итерации — в [docs/TZ.md](docs/TZ.md).
 
-## Roles and access
+## Экспериментально: инструменты чата
 
-- The first admin is created from `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
-- New users self-register with email + password and wait until an admin approves them.
-- Admins manage studies, users and models; everyone approved can chat and see all studies (it is a shared knowledge base).
+В чате есть система модулей, которые ведут собственный сценарий поверх RAG. Первый — **брифинг задачи на исследование**: когда в базе нет ответа, ассистент предлагает завести задачу, задает заказчику по одному вопросу, проверяет гипотезы по критериям NN/g, методологическую часть предлагает сам и сохраняет задачу в Markdown в `tasks/`. По умолчанию выключен (`tools.research_task: false` в `config/models.yaml`), пока сценарий дошлифовывается — включите, чтобы попробовать.
 
-## Experimental: chat tools
+## Разворачивание не на localhost
 
-The chat has a small module system for tools that run their own scenario on top of RAG. The first one, **research task briefing**, kicks in when the knowledge base has no answer: it offers to brief a new study, asks the customer one question at a time, validates hypotheses against NN/g criteria, proposes the methodology part itself and saves the task as Markdown into `tasks/`. It is off by default (`tools.research_task: false` in `config/models.yaml`) while the flow is being polished — turn it on to try it.
+Для ноутбука или внутреннего сервера достаточно `docker compose up`. Перед тем как открывать сервис наружу:
 
-## Deploying beyond localhost
+1. Задайте случайный `JWT_SECRET` и настоящий `ADMIN_PASSWORD` в `.env` (пока стоят дефолты, API пишет предупреждение в лог).
+2. Спрячьте оба сервиса за HTTPS (любой reverse proxy) и пропишите публичные адреса в `FRONTEND_ORIGIN` / `NEXT_PUBLIC_API_URL`, затем пересоберите `web` (адрес API зашивается при сборке).
+3. Добавьте rate-limit на `/auth/login` на прокси.
+4. Если используете GigaChat с `verify_ssl: false` — вместо этого установите в образ сертификаты НУЦ Минцифры.
+5. Загруженные файлы лежат в volume `files-data` в открытом виде — решите, нужно ли шифрование at rest.
 
-`docker compose up` is enough for a laptop or an internal server. Before exposing the service:
+За пределы вашей инфраструктуры уходят только запросы, которые вы настроили: чат и эмбеддинги — к провайдерам из `models.yaml`; с локальным транскрибером аудио обрабатывается на вашей машине.
 
-1. Set a random `JWT_SECRET` and a real `ADMIN_PASSWORD` in `.env` (the API logs a warning while defaults are in use).
-2. Put both services behind HTTPS (any reverse proxy) and set `FRONTEND_ORIGIN` / `NEXT_PUBLIC_API_URL` to the public URLs, then rebuild `web` (the API URL is baked in at build time).
-3. Add rate limiting on `/auth/login` at the proxy.
-4. If you use GigaChat with `verify_ssl: false`, install the Russian NUC root certificates into the image instead.
-5. Uploaded files are stored unencrypted in the `files-data` volume — decide whether you need at-rest encryption.
+## Планы
 
-Nothing leaves your infrastructure except the requests you configure: chat and embedding calls go to the providers in `models.yaml`, and with the local transcriber audio is processed on your machine.
+- Гибридный поиск (BM25 + векторы, RRF) для точных чисел, годов и названий продуктов.
+- Графики по сырым CSV-данным прямо в ответах.
+- Проверка цитат после генерации (ловить пересказ, выданный за цитату).
+- Доведение инструмента брифинга задач.
+- Английский интерфейс / i18n.
+- Разбор PDF с графиками и сложной версткой через VLM.
 
-## Roadmap
+## Участие
 
-- Hybrid search (BM25 + vectors, reciprocal rank fusion) for exact numbers, years and product names.
-- Chart generation from raw CSV data in answers.
-- Citation verification pass to catch paraphrase-as-quote.
-- Finishing the research task briefing tool.
-- English UI / i18n.
-- VLM-based parsing of PDFs with charts and complex layouts.
+Issues и pull request'ы приветствуются — см. [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Contributing
-
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). The codebase has Russian comments and UI strings; contributions in English or Russian are both fine.
-
-## License
+## Лицензия
 
 [MIT](LICENSE).
