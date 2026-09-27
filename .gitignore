@@ -1,0 +1,22 @@
+# Secrets and personal configuration
+.env
+config/models.local.yaml
+
+# Local data: uploaded studies, generated tasks, private notes — never commit
+data/
+tasks/*
+!tasks/.gitkeep
+_local/
+
+# Build artifacts and dependencies
+node_modules/
+.next/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Tooling
+.claude/
+.idea/
+.vscode/
+.DS_Store

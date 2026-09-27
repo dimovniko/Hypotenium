@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: researcher
+      POSTGRES_PASSWORD: researcher
+      POSTGRES_DB: researcher
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researcher -d researcher"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: &backend_env
+      DATABASE_URL: postgresql+asyncpg://researcher:researcher@postgres:5432/researcher
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      FILES_DIR: /data/files
+      TASKS_DIR: /data/tasks
+      MODELS_CONFIG_PATH: /config/models.yaml
+      # Ключи подставляются в config/models.yaml через ${...}; заполняются в .env
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      POLZA_API_KEY: ${POLZA_API_KEY:-}
+      GIGACHAT_AUTH_KEY: ${GIGACHAT_AUTH_KEY:-}
+    volumes:
+      - files-data:/data/files
+      - ./config:/config
+      - ./tasks:/data/tasks
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: arq app.worker.WorkerSettings
+    environment: *backend_env
+    volumes:
+      - files-data:/data/files
+      - ./config:/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Опционально: локальная транскрибация GigaAM (аудио не покидает машину).
+  # Тяжелый образ (~1 ГБ + веса), поэтому за профилем: COMPOSE_PROFILES=gigaam в .env
+  # или `docker compose --profile gigaam up -d`. Без него транскрибация идет через API
+  # из config/models.yaml (слот transcription).
+  transcriber:
+    profiles: ["gigaam"]
+    build: ./transcriber
+    environment:
+      GIGAAM_MODEL: v3_e2e_rnnt
+      OMP_NUM_THREADS: "4"
+    volumes:
+      - gigaam-cache:/root/.cache
+    ports:
+      - "127.0.0.1:9000:9000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  files-data:
+  gigaam-cache:

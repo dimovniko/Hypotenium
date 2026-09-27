@@ -1,0 +1,71 @@
+# Model configuration. Hot-reloaded: save the file and the next request already uses
+# the new settings, no restart needed.
+#
+# Personal setup goes to config/models.local.yaml (git-ignored): when that file exists,
+# it is used instead of this one.
+#
+# Three slots — chat, embedding, transcription. Any OpenAI-compatible API works:
+# OpenAI, OpenRouter, Together, polza.ai, Ollama, vLLM, LM Studio, ...
+# Secrets never go here: reference variables from .env with ${VAR}.
+
+chat:
+  base_url: https://api.openai.com/v1
+  api_key: ${LLM_API_KEY}
+  model: gpt-4o-mini
+
+embedding:
+  base_url: https://api.openai.com/v1
+  api_key: ${LLM_API_KEY}
+  model: text-embedding-3-small
+
+transcription:
+  base_url: https://api.openai.com/v1
+  api_key: ${LLM_API_KEY}
+  model: whisper-1
+
+# --- Alternatives (uncomment and adjust) -------------------------------------------
+#
+# Aggregators (OpenRouter, polza.ai, ...) — same shape, different base_url and model:
+# chat:
+#   base_url: https://openrouter.ai/api/v1
+#   api_key: ${LLM_API_KEY}
+#   model: qwen/qwen3-235b-a22b
+#
+# Local models via Ollama (no key needed; on Linux add
+# `extra_hosts: ["host.docker.internal:host-gateway"]` to api and worker):
+# chat:
+#   base_url: http://host.docker.internal:11434/v1
+#   model: qwen2.5:14b
+# embedding:
+#   base_url: http://host.docker.internal:11434/v1
+#   model: nomic-embed-text
+#
+# GigaChat (Sber) direct API — own OAuth flow, key in .env → GIGACHAT_AUTH_KEY:
+# embedding:
+#   provider: gigachat
+#   base_url: https://api.giga.chat/v1
+#   auth_key: ${GIGACHAT_AUTH_KEY}   # Authorization key (Basic), NOT an access_token
+#   scope: GIGACHAT_API_PERS         # PERS — individuals; B2B / CORP — companies
+#   model: EmbeddingsGigaR
+#   verify_ssl: false                # Sber uses Russian NUC certificates; install them for production instead
+#
+# Local transcription with GigaAM (Russian ASR with timecodes, audio never leaves
+# the machine). Start with COMPOSE_PROFILES=gigaam (see docker-compose.yml), then:
+# transcription:
+#   base_url: http://transcriber:9000/v1
+#   model: v3_e2e_rnnt
+#
+# Switching the embedding model makes the existing index incompatible — the admin
+# panel shows a "Reindex" button that re-embeds all chunks without re-transcribing.
+
+# Retrieval parameters
+rag:
+  top_k: 16               # how many chunks are passed to the model
+  min_similarity: 0.2     # cosine similarity threshold; lower-scoring chunks are dropped
+  history_messages: 10    # how many recent chat messages are used as context
+
+# Experimental chat tools (modules). Off by default.
+tools:
+  # "Research task" briefing: when the knowledge base has no answer, the assistant
+  # offers to brief a new research task step by step and saves it as Markdown into tasks/.
+  research_task: false
